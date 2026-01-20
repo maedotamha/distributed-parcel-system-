@@ -1,0 +1,301 @@
+version: '3.8'
+
+networks:
+  delivery_network:
+    driver: bridge
+
+services:
+  # Databases
+  db-user:
+    image: postgres:15-alpine
+    container_name: db-user
+    environment:
+      POSTGRES_DB: user_service_db
+      POSTGRES_USER: delivery_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-YourStrongPassword123}
+    ports:
+      - "5435:5432"
+    volumes:
+      - ./db/init_scripts/01_init_user_db.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - delivery_network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U delivery_user -d user_service_db" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  db-order:
+    image: postgres:15-alpine
+    container_name: db-order
+    environment:
+      POSTGRES_DB: order_service_db
+      POSTGRES_USER: delivery_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-YourStrongPassword123}
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./db/init_scripts/02_init_order_db.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - delivery_network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U delivery_user -d order_service_db" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  db-payment:
+    image: postgres:15-alpine
+    container_name: db-payment
+    environment:
+      POSTGRES_DB: payment_service_db
+      POSTGRES_USER: delivery_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-YourStrongPassword123}
+    ports:
+      - "5434:5432"
+    volumes:
+      - ./db/init_scripts/03_init_payment_db.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - delivery_network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U delivery_user -d payment_service_db" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  # RabbitMQ Message Broker
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672" # AMQP protocol port
+      - "15672:15672" # Management UI port
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    networks:
+      - delivery_network
+    healthcheck:
+      test: [ "CMD-SHELL", "rabbitmq-diagnostics -q ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  # Microservices
+  user-service:
+    build: ./user-service
+    container_name: user-app
+    environment:
+      - DATABASE_URL=postgresql://delivery_user:${DB_PASSWORD:-YourStrongPassword123}@db-user:5432/user_service_db
+      - RABBITMQ_URL=amqp://rabbitmq:5672
+      - JWT_SECRET=${JWT_SECRET:-supersecretkey123}
+      - PORT=3001
+    networks:
+      - delivery_network
+    depends_on:
+      db-user:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3001/health || exit 1" ]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+
+  order-service:
+    build: ./order-service
+    container_name: order-app
+    environment:
+      - DATABASE_URL=postgresql://delivery_user:${DB_PASSWORD:-YourStrongPassword123}@db-order:5432/order_service_db
+      - RABBITMQ_URL=amqp://rabbitmq:5672
+      - JWT_SECRET=${JWT_SECRET:-supersecretkey123}
+      - PORT=3002
+    networks:
+      - delivery_network
+    depends_on:
+      db-order:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3002/health || exit 1" ]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+
+  payment-service:
+    build: ./payment-service
+    container_name: payment-app
+    environment:
+      - DATABASE_URL=postgresql://delivery_user:${DB_PASSWORD:-YourStrongPassword123}@db-payment:5432/payment_service_db
+      - RABBITMQ_URL=amqp://rabbitmq:5672
+      - JWT_SECRET=${JWT_SECRET:-supersecretkey123}
+      - PORT=3003
+      - CHAPA_SECRET_KEY=CHASECK_TEST-tN76XXA4XXBORpqJEWk1Jw56t7Jy7KXT
+      - BASE_URL=http://localhost:5173
+    networks:
+      - delivery_network
+    depends_on:
+      db-payment:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3003/health || exit 1" ]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+
+  notification-service:
+    build: ./notification-service
+    container_name: notification-app
+    environment:
+      - RABBITMQ_URL=amqp://rabbitmq:5672
+    networks:
+      - delivery_network
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "ps aux | grep '[n]ode' || exit 1" ]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+
+  api-gateway:
+    build: ./api-gateway
+    # Removed container_name to allow scaling with --scale api-gateway=2
+    environment:
+      - USER_SERVICE_URL=http://user-service:3001
+      - ORDER_SERVICE_URL=http://order-service:3002
+      - PAYMENT_SERVICE_URL=http://payment-service:3003
+      - JWT_SECRET=${JWT_SECRET:-supersecretkey123}
+      - PORT=8000
+    networks:
+      - delivery_network
+    ports:
+       - "8000:8000"
+    depends_on:
+      user-service:
+        condition: service_healthy
+      order-service:
+        condition: service_healthy
+      payment-service:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8000/api/health || exit 1" ]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+
+
+  # Infrastructure
+  nginx:
+    image: nginx:alpine
+    container_name: nginx-lb
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      - delivery_network
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost/health || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 128M
+
+  frontend:
+    build: ./frontend
+    container_name: frontend-app
+    ports:
+      - "5173:5173"
+    networks:
+      - delivery_network
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:5173 || exit 1" ]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M

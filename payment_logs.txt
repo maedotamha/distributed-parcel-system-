@@ -1,0 +1,85 @@
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "payment_service_db", schema "public" at "db-payment:5432"
+
+The database is already in sync with the Prisma schema.
+
+Running generate... (Use --skip-generate to skip the generators)
+[2K[1A[2K[GRunning generate... - Prisma Client
+[2K[1A[2K[G✔ Generated Prisma Client (v5.22.0) to ./node_modules/@prisma/client in 522ms
+
+
+> payment-service@1.0.0 dev
+> ts-node-dev --respawn --transpile-only src/server.ts
+
+[INFO] 19:25:00 ts-node-dev ver. 2.0.0 (using ts-node ver. 10.9.2, typescript ver. 5.9.3)
+🔌 Connecting to RabbitMQ...
+Connecting to RabbitMQ at amqp://rabbitmq:5672...
+✅ Connected to RabbitMQ
+📡 Starting payment consumers...
+🔥 Payment order consumer starting... (attempt 1/10)
+📥 Subscribed to "order.created" via queue "payment_service_order_created"
+✅ Consumer successfully subscribed to 'order.created' on queue 'payment_service_order_created'
+
+🚀 Payment Service running on http://localhost:3003
+[0mHEAD /health [32m200[0m 1.401 ms - 69[0m
+[0mHEAD /health [32m200[0m 0.331 ms - 70[0m
+[0mHEAD /health [32m200[0m 0.320 ms - 70[0m
+[0mHEAD /health [32m200[0m 0.233 ms - 70[0m
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "payment_service_db", schema "public" at "db-payment:5432"
+
+The database is already in sync with the Prisma schema.
+
+Running generate... (Use --skip-generate to skip the generators)
+[2K[1A[2K[GRunning generate... - Prisma Client
+[2K[1A[2K[G✔ Generated Prisma Client (v5.22.0) to ./node_modules/@prisma/client in 445ms
+
+┌─────────────────────────────────────────────────────────┐
+│  Update available 5.22.0 -> 7.2.0                       │
+│                                                         │
+│  This is a major update - please follow the guide at    │
+│  https://pris.ly/d/major-version-upgrade                │
+│                                                         │
+│  Run the following to update                            │
+│    npm i --save-dev prisma@latest                       │
+│    npm i @prisma/client@latest                          │
+└─────────────────────────────────────────────────────────┘
+
+> payment-service@1.0.0 dev
+> ts-node-dev --respawn --transpile-only src/server.ts
+
+[INFO] 19:26:02 ts-node-dev ver. 2.0.0 (using ts-node ver. 10.9.2, typescript ver. 5.9.3)
+🔌 Connecting to RabbitMQ...
+Connecting to RabbitMQ at amqp://rabbitmq:5672...
+✅ Connected to RabbitMQ
+📡 Starting payment consumers...
+🔥 Payment order consumer starting... (attempt 1/10)
+📥 Subscribed to "order.created" via queue "payment_service_order_created"
+✅ Consumer successfully subscribed to 'order.created' on queue 'payment_service_order_created'
+
+🚀 Payment Service running on http://localhost:3003
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "payment_service_db", schema "public" at "db-payment:5432"
+
+The database is already in sync with the Prisma schema.
+
+Running generate... (Use --skip-generate to skip the generators)
+[2K[1A[2K[GRunning generate... - Prisma Client
+[2K[1A[2K[G✔ Generated Prisma Client (v5.22.0) to ./node_modules/@prisma/client in 396ms
+
+
+> payment-service@1.0.0 dev
+> ts-node-dev --respawn --transpile-only src/server.ts
+
+[INFO] 19:26:12 ts-node-dev ver. 2.0.0 (using ts-node ver. 10.9.2, typescript ver. 5.9.3)
+🔌 Connecting to RabbitMQ...
+Connecting to RabbitMQ at amqp://rabbitmq:5672...
+✅ Connected to RabbitMQ
+📡 Starting payment consumers...
+🔥 Payment order consumer starting... (attempt 1/10)
+📥 Subscribed to "order.created" via queue "payment_service_order_created"
+✅ Consumer successfully subscribed to 'order.created' on queue 'payment_service_order_created'
+
+🚀 Payment Service running on http://localhost:3003
+[0mHEAD /health [32m200[0m 1.549 ms - 69[0m
+[0mHEAD /health [32m200[0m 0.428 ms - 70[0m

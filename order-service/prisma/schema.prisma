@@ -1,0 +1,284 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+///////////////////////
+// ENUMS
+///////////////////////
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  ASSIGNED_TO_COURIER
+  PICKED_UP
+  IN_TRANSIT
+  OUT_FOR_DELIVERY
+  DELIVERED
+  FAILED
+  CANCELLED
+  RETURNED
+}
+
+enum OrderPriority {
+  STANDARD
+  EXPRESS
+  SAME_DAY
+}
+
+enum ServiceType {
+  DOOR_TO_DOOR
+  PICKUP_STATION
+  LOCKER
+}
+
+enum AddressType {
+  PICKUP
+  DELIVERY
+  RETURN
+}
+
+enum TrackingEventType {
+  ORDER_CREATED
+  ORDER_CONFIRMED
+  COURIER_ASSIGNED
+  PICKUP_SCHEDULED
+  ARRIVED_AT_PICKUP
+  PARCEL_PICKED_UP
+  IN_TRANSIT
+  ARRIVED_AT_HUB
+  DEPARTED_FROM_HUB
+  OUT_FOR_DELIVERY
+  DELIVERY_ATTEMPTED
+  DELIVERED
+  FAILED
+  DELAYED
+  CANCELLED
+  RETURN_INITIATED
+  RETURNED
+}
+
+enum AssignmentStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  REASSIGNED
+}
+
+enum ProofType {
+  SIGNATURE
+  PHOTO
+  CODE
+  RECIPIENT_DETAILS
+}
+
+///////////////////////
+// MODELS
+///////////////////////
+
+model Order {
+  orderId               String   @id @default(uuid()) @db.Uuid
+  orderNumber           String   @unique
+  customerId            String   @db.Uuid
+  
+  courierId             String?  @db.Uuid
+  vehicleId             String?  @db.Uuid
+
+  status                OrderStatus @default(PENDING)
+  priority              OrderPriority @default(STANDARD)
+  serviceType           ServiceType?
+
+  estimatedDeliveryTime DateTime? @db.Timestamptz
+  actualDeliveryTime    DateTime? @db.Timestamptz
+  customerRating        Int?
+
+  createdAt             DateTime @default(now()) @db.Timestamptz
+  updatedAt             DateTime @default(now()) @db.Timestamptz
+
+  scheduledPickupTime   DateTime? @db.Timestamptz
+  scheduledDeliveryTime DateTime? @db.Timestamptz
+
+  notes                 String?
+
+  addresses             OrderAddress[]
+  parcels               Parcel[]
+  trackingEvents        TrackingEvent[]
+  courierAssignments    CourierAssignment[]
+  deliveryProofs        DeliveryProof[]
+  locationUpdates       LocationUpdate[]
+
+  @@index([customerId, status, createdAt])
+  @@index([courierId, status])
+  @@index([status, createdAt])
+  @@index([orderNumber])
+}
+
+//////////////////////////////////////////////////
+
+model OrderAddress {
+  addressId     String @id @default(uuid()) @db.Uuid
+  orderId       String @db.Uuid
+  addressType   AddressType
+
+  contactName   String
+  contactPhone  String
+  contactEmail  String?
+
+  streetAddress String
+  subcity       String
+  kebele        String
+  woreda        String?
+  houseNumber   String?
+  landmark      String?
+  instructions  String?
+
+  createdAt     DateTime @default(now()) @db.Timestamptz
+
+  order         Order @relation(fields: [orderId], references: [orderId], onDelete: Cascade)
+
+  @@index([orderId, addressType])
+}
+
+//////////////////////////////////////////////////
+
+model Parcel {
+  parcelId        String @id @default(uuid()) @db.Uuid
+  orderId         String @db.Uuid
+
+  parcelNumber    String @unique
+  description     String?
+
+  weightKg        Decimal @db.Decimal(6,2)
+  lengthCm        Decimal? @db.Decimal(6,2)
+  widthCm         Decimal? @db.Decimal(6,2)
+  heightCm        Decimal? @db.Decimal(6,2)
+
+  declaredValue   Decimal? @db.Decimal(15,2)
+  category        String?
+
+  isFragile        Boolean @default(false)
+  isPerishable     Boolean @default(false)
+  requiresSignature Boolean @default(false)
+
+  insuranceAmount Decimal? @db.Decimal(15,2)
+
+  createdAt       DateTime @default(now()) @db.Timestamptz
+
+  order           Order @relation(fields: [orderId], references: [orderId], onDelete: Cascade)
+  items           OrderItem[]
+
+  @@index([orderId])
+}
+
+//////////////////////////////////////////////////
+
+model OrderItem {
+  itemId      String @id @default(uuid()) @db.Uuid
+  parcelId    String @db.Uuid
+
+  sku         String?
+  name        String
+  description String?
+  quantity    Int
+  unitValue   Decimal? @db.Decimal(15,2)
+
+  createdAt   DateTime @default(now()) @db.Timestamptz
+
+  parcel      Parcel @relation(fields: [parcelId], references: [parcelId], onDelete: Cascade)
+}
+
+//////////////////////////////////////////////////
+
+model TrackingEvent {
+  eventId        String @id @default(uuid()) @db.Uuid
+  orderId        String @db.Uuid
+
+  eventType      TrackingEventType
+  eventTimestamp DateTime @default(now()) @db.Timestamptz
+
+  locationText   String?
+  latitude       Decimal? @db.Decimal(10,8)
+  longitude      Decimal? @db.Decimal(11,8)
+
+  courierId      String?
+  notes          String?
+
+  createdAt      DateTime @default(now()) @db.Timestamptz
+
+  order          Order @relation(fields: [orderId], references: [orderId], onDelete: Cascade)
+
+  @@index([orderId, eventTimestamp])
+}
+
+//////////////////////////////////////////////////
+
+model CourierAssignment {
+  assignmentId       String @id @default(uuid()) @db.Uuid
+  orderId            String @db.Uuid
+  courierId          String
+  vehicleId          String?
+  assignedBy         String?
+
+  assignedAt         DateTime @default(now()) @db.Timestamptz
+  unassignedAt       DateTime?
+  unassignmentReason String?
+
+  status             AssignmentStatus @default(ACTIVE)
+
+  order              Order @relation(fields: [orderId], references: [orderId], onDelete: Cascade)
+
+  @@index([status, assignedAt])
+}
+
+//////////////////////////////////////////////////
+
+model DeliveryProof {
+  proofId           String @id @default(uuid()) @db.Uuid
+  orderId           String @db.Uuid
+
+  proofType         ProofType
+  recipientName     String?
+  recipientRelation String?
+  signatureImageUrl String?
+  photoUrls         String[]
+  accessCodeUsed    String?
+
+  deliveredAt       DateTime @default(now()) @db.Timestamptz
+  createdAt         DateTime @default(now()) @db.Timestamptz
+
+  order             Order @relation(fields: [orderId], references: [orderId], onDelete: Cascade)
+}
+
+//////////////////////////////////////////////////
+
+model LocationUpdate {
+  locationId     String @id @default(uuid()) @db.Uuid
+  orderId        String @db.Uuid
+  courierId      String
+
+  latitude       Decimal @db.Decimal(10,8)
+  longitude      Decimal @db.Decimal(11,8)
+  accuracyMeters Decimal? @db.Decimal(5,1)
+  speedKph       Decimal? @db.Decimal(5,1)
+
+  recordedAt     DateTime @default(now()) @db.Timestamptz
+
+  order          Order @relation(fields: [orderId], references: [orderId], onDelete: Cascade)
+
+
+//////////////////////////////////////////////////
+// IDEMPOTENCY
+//////////////////////////////////////////////////
+
+model ProcessedEvent {
+  eventId    String   @id
+  eventType  String
+  service    String
+  processedAt DateTime @default(now()) @db.Timestamptz
+
+  @@index([eventId])
+}

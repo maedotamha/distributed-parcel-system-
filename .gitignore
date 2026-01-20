@@ -1,0 +1,30 @@
+# Environment variables
+.env
+.env.local
+
+# Node.js
+node_modules/
+dist/
+build/
+.npm
+*.log
+
+# Docker
+volumes/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+.agent/
+
+# Prisma
+/user-service/prisma/generated-client
+/order-service/prisma/generated-client
+/payment-service/prisma/generated-client
